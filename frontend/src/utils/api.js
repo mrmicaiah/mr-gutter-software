@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://mr-gutter-worker.YOUR_SUBDOMAIN.workers.dev';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://mr-gutter-software.micaiah-tasks.workers.dev';
 
 export class ApiError extends Error {
   constructor(message, status, data = null) {
