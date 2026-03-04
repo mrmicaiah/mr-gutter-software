@@ -1,99 +1,122 @@
-import { TrendingUp, DollarSign, Briefcase, Target } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useToast } from '../components/Toast';
+import SpeedometerGauge from '../components/SpeedometerGauge';
+import ProfitDial from '../components/ProfitDial';
+import MoneyCounter from '../components/MoneyCounter';
+import GoalRing from '../components/GoalRing';
+import StreakBadge from '../components/StreakBadge';
+import ZipcodeLeaderboard from '../components/ZipcodeLeaderboard';
+import BestJobCard from '../components/BestJobCard';
+import ComparisonCard from '../components/ComparisonCard';
+import RecentJobsFeed from '../components/RecentJobsFeed';
+import api from '../utils/api';
 
-// Placeholder stat card component
-function StatCard({ icon: Icon, label, value, subtext, color = 'brand' }) {
-  const colorClasses = {
-    brand: 'bg-brand-50 text-brand-600',
-    green: 'bg-emerald-50 text-emerald-600',
-    orange: 'bg-orange-50 text-orange-600',
-    purple: 'bg-purple-50 text-purple-600',
-  };
+const RefreshIcon = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>);
 
-  return (
-    <div className="card">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-slate-500 font-medium">{label}</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{value}</p>
-          {subtext && (
-            <p className="text-sm text-slate-500 mt-1">{subtext}</p>
-          )}
-        </div>
-        <div className={`p-2.5 rounded-lg ${colorClasses[color]}`}>
-          <Icon className="w-5 h-5" />
-        </div>
-      </div>
-    </div>
-  );
-}
+const LoadingSkeleton = () => (
+  <div className="animate-pulse space-y-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">{[1,2,3,4].map(i => <div key={i} className="h-48 rounded-xl" style={{ background: 'var(--bg-tertiary)' }} />)}</div>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{[1,2].map(i => <div key={i} className="h-64 rounded-xl" style={{ background: 'var(--bg-tertiary)' }} />)}</div>
+  </div>
+);
 
 export default function Dashboard() {
+  const currentYear = new Date().getFullYear();
+  const { error: showError } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [data, setData] = useState({ summary: null, zipcodes: [], recentJobs: [], goals: null });
+
+  useEffect(() => { fetchAllData(); }, []);
+
+  const fetchAllData = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    try {
+      const [summaryRes, zipcodesRes, jobsRes, goalsRes] = await Promise.allSettled([
+        api.getSummary(),
+        api.getZipcodeStats(),
+        api.getJobs({ limit: 10 }),
+        api.getGoals(currentYear),
+      ]);
+      setData({
+        summary: summaryRes.status === 'fulfilled' ? summaryRes.value.data : null,
+        zipcodes: zipcodesRes.status === 'fulfilled' ? zipcodesRes.value.data || [] : [],
+        recentJobs: jobsRes.status === 'fulfilled' ? jobsRes.value.data || [] : [],
+        goals: goalsRes.status === 'fulfilled' ? goalsRes.value.data : null,
+      });
+    } catch (e) { showError('Failed to load dashboard'); }
+    finally { setLoading(false); setRefreshing(false); }
+  };
+
+  const summary = data.summary || {};
+  const week = summary.week || {};
+  const month = summary.month || {};
+  const prevWeek = summary.prev_week || {};
+  const prevMonth = summary.prev_month || {};
+  const year = summary.year || {};
+  const yearlyGoal = data.goals?.yearly_target || 500000;
+  const weeklyGoal = yearlyGoal / 52;
+  const monthProfit = (month.production || 0) - (month.costs || 0);
+  const monthRevenue = month.production || 1;
+  
+  const bestJob = data.recentJobs.reduce((best, job) => {
+    const profit = (job.full_price || 0) - (job.material_cost || 0) - (job.workers_cost || 0);
+    const bestProfit = best ? (best.full_price || 0) - (best.material_cost || 0) - (best.workers_cost || 0) : 0;
+    return profit > bestProfit ? job : best;
+  }, null);
+
+  if (loading) return (
+    <div className="p-4 lg:p-6 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-6"><div><div className="h-8 w-48 rounded" style={{ background: 'var(--bg-tertiary)' }} /><div className="h-4 w-32 mt-2 rounded" style={{ background: 'var(--bg-tertiary)' }} /></div></div>
+      <LoadingSkeleton />
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-slate-500 mt-1">Welcome back! Here's your production overview.</p>
+    <div className="p-4 lg:p-6 max-w-7xl mx-auto pb-24 lg:pb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-wider" style={{ color: 'var(--text-primary)' }}>Command Center</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+        </div>
+        <button onClick={() => fetchAllData(true)} disabled={refreshing} className="btn btn-secondary" style={{ opacity: refreshing ? 0.6 : 1 }}>
+          <span style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }}><RefreshIcon /></span>
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon={DollarSign}
-          label="This Week"
-          value="$0"
-          subtext="Production"
-          color="brand"
-        />
-        <StatCard
-          icon={TrendingUp}
-          label="This Month"
-          value="$0"
-          subtext="Production"
-          color="green"
-        />
-        <StatCard
-          icon={Briefcase}
-          label="Jobs"
-          value="0"
-          subtext="This month"
-          color="orange"
-        />
-        <StatCard
-          icon={Target}
-          label="Goal Progress"
-          value="0%"
-          subtext="Year to date"
-          color="purple"
-        />
+      {/* Money Counter Hero */}
+      <div className="mb-6">
+        <MoneyCounter value={month.production || 0} label={`${new Date().toLocaleDateString('en-US', { month: 'long' })} Production`} />
       </div>
 
-      {/* Placeholder content */}
+      {/* Gauges Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <SpeedometerGauge value={week.production || 0} goal={weeklyGoal} label="Weekly Production" />
+        <ProfitDial profit={monthProfit} revenue={monthRevenue} />
+        <GoalRing current={year.production || 0} goal={yearlyGoal} label={`${currentYear} Goal`} />
+        <StreakBadge streak={summary.streak || 0} bestStreak={summary.best_streak || 0} />
+      </div>
+
+      {/* Comparison Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <ComparisonCard current={week.production || 0} previous={prevWeek.production || 0} label="This Week" />
+        <ComparisonCard current={month.production || 0} previous={prevMonth.production || 0} label="This Month" />
+        <ComparisonCard current={week.jobs || 0} previous={prevWeek.jobs || 0} label="Jobs This Week" format="number" />
+        <ComparisonCard current={monthProfit > 0 ? (monthProfit / monthRevenue) * 100 : 0} previous={prevMonth.margin || 0} label="Profit Margin" format="percent" />
+      </div>
+
+      {/* Best Job */}
+      <div className="mb-6"><BestJobCard job={bestJob} /></div>
+
+      {/* Two Column */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart placeholder */}
-        <div className="card">
-          <h2 className="font-semibold text-slate-900 mb-4">Production Trend</h2>
-          <div className="h-48 flex items-center justify-center bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
-            <p className="text-slate-400">Chart coming soon</p>
-          </div>
-        </div>
-
-        {/* Recent jobs placeholder */}
-        <div className="card">
-          <h2 className="font-semibold text-slate-900 mb-4">Recent Jobs</h2>
-          <div className="h-48 flex items-center justify-center bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
-            <p className="text-slate-400">No jobs yet</p>
-          </div>
-        </div>
+        <ZipcodeLeaderboard data={data.zipcodes} />
+        <RecentJobsFeed jobs={data.recentJobs} />
       </div>
 
-      {/* Zipcode breakdown placeholder */}
-      <div className="card">
-        <h2 className="font-semibold text-slate-900 mb-4">Production by Zipcode</h2>
-        <div className="h-32 flex items-center justify-center bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
-          <p className="text-slate-400">Zipcode breakdown coming soon</p>
-        </div>
-      </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
