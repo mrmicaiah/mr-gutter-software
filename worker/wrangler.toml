@@ -6,7 +6,7 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "mr-gutter-db"
-database_id = "YOUR_DATABASE_ID_HERE"  # Replace after running: wrangler d1 create mr-gutter-db
+database_id = "e9152dc2-fed4-459d-830f-27226362e68c"
 
 # Development settings
 [dev]
