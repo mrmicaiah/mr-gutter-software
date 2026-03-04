@@ -100,17 +100,17 @@ export default function Goals() {
 
       {/* Yearly Target Hero */}
       <div className="mb-6 p-6 rounded-2xl" style={{ background: 'linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%)', boxShadow: 'var(--shadow-brand)' }}>
-        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.2)' }}><TargetIcon /></div><div><h2 className="font-display text-sm font-semibold uppercase tracking-wider text-white/80">Yearly Target</h2><p className="text-xs text-white/60">Total production goal for {year}</p></div></div>
+        <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl flex items-center justify-center text-white" style={{ background: 'rgba(255,255,255,0.2)' }}><TargetIcon /></div><div><h2 className="font-display text-sm font-semibold uppercase tracking-wider text-white/80">Yearly Target</h2><p className="text-xs text-white/60">Total production goal for {year}</p></div></div>
         <div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-3xl font-bold text-white/50">$</span><input type="text" inputMode="numeric" value={formatTarget(yearlyTarget)} onChange={handleTargetChange} className="w-full pl-12 pr-4 py-4 text-3xl font-display font-bold rounded-xl border-2 border-white/20 bg-white/10 text-white placeholder-white/30 focus:outline-none focus:border-white/40" placeholder="500,000" /></div>
         <p className="mt-3 text-sm text-white/60 text-center">${evenAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })} per month average</p>
       </div>
 
       {/* Mode Toggle */}
       <div className="mb-6 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)' }}>
-        <div className="flex items-center gap-3"><ToggleIcon /><div><h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Distribution Mode</h3><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{mode === 'even' ? 'Dividing evenly across all months' : 'Custom amounts per month'}</p></div></div>
+        <div className="flex items-center gap-3" style={{ color: 'var(--text-muted)' }}><ToggleIcon /><div><h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Distribution Mode</h3><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{mode === 'even' ? 'Dividing evenly across all months' : 'Custom amounts per month'}</p></div></div>
         <div className="flex gap-2">
           <button onClick={() => handleModeChange('even')} className="px-4 py-2 rounded-lg font-semibold text-sm transition-all" style={{ background: mode === 'even' ? 'var(--blue-light)' : 'var(--bg-tertiary)', color: mode === 'even' ? 'var(--blue)' : 'var(--text-secondary)', border: `2px solid ${mode === 'even' ? 'var(--blue)' : 'transparent'}` }}>Even Split</button>
-          <button onClick={() => handleModeChange('custom')} className="px-4 py-2 rounded-lg font-semibold text-sm transition-all" style={{ background: mode === 'custom' ? 'var(--blue-light)' : 'var(--bg-tertiary)', color: mode === 'custom' ? 'var(--blue)' : 'transparent'}` }}>Custom</button>
+          <button onClick={() => handleModeChange('custom')} className="px-4 py-2 rounded-lg font-semibold text-sm transition-all" style={{ background: mode === 'custom' ? 'var(--blue-light)' : 'var(--bg-tertiary)', color: mode === 'custom' ? 'var(--blue)' : 'var(--text-secondary)', border: `2px solid ${mode === 'custom' ? 'var(--blue)' : 'transparent'}` }}>Custom</button>
         </div>
       </div>
 
