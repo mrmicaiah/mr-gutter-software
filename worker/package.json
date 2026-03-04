@@ -1,0 +1,21 @@
+{
+  "name": "mr-gutter-worker",
+  "version": "1.0.0",
+  "description": "Production & Profitability Tracker API for Mr Gutter",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create mr-gutter-db",
+    "db:init": "wrangler d1 execute mr-gutter-db --file=./schema.sql",
+    "db:init:local": "wrangler d1 execute mr-gutter-db --local --file=./schema.sql"
+  },
+  "dependencies": {
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "typescript": "^5.3.3",
+    "wrangler": "^3.24.0"
+  }
+}
