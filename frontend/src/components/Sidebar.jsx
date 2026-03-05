@@ -15,6 +15,7 @@ const MR_GUTTER_LOGO = 'https://res.cloudinary.com/dxzw1zwez/image/upload/v17687
 const NAV_ITEMS = [
   { to: '/', icon: DashboardIcon, label: 'Command Center' },
   { to: '/estimates', icon: FunnelIcon, label: 'Estimates' },
+  { to: '/estimates/new', icon: PlusIcon, label: 'Add Estimate' },
   { to: '/jobs', icon: JobsIcon, label: 'Jobs' },
   { to: '/jobs/new', icon: PlusIcon, label: 'Add Job' },
   { to: '/goals', icon: GoalsIcon, label: 'Goals' },
