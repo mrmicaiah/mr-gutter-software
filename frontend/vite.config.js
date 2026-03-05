@@ -9,26 +9,48 @@ export default defineConfig({
       registerType: 'autoUpdate',
       manifest: {
         name: 'Mr Gutter Production Tracker',
-        short_name: 'MrGutter',
+        short_name: 'Mr Gutter',
         description: 'Track gutter installation jobs, profitability, and goals',
         theme_color: '#0066cc',
-        background_color: '#ffffff',
+        background_color: '#0d1117',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
         icons: [
           {
-            src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect fill="%230066cc" width="192" height="192" rx="24"/><text x="96" y="120" font-family="Arial" font-size="80" font-weight="bold" fill="white" text-anchor="middle">M</text></svg>',
+            src: 'https://res.cloudinary.com/dxzw1zwez/image/upload/w_192,h_192,c_fit/v1768790415/mr_gutter_blue_complete_vr9fak.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
-            src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect fill="%230066cc" width="512" height="512" rx="64"/><text x="256" y="320" font-family="Arial" font-size="220" font-weight="bold" fill="white" text-anchor="middle">M</text></svg>',
+            src: 'https://res.cloudinary.com/dxzw1zwez/image/upload/w_512,h_512,c_fit/v1768790415/mr_gutter_blue_complete_vr9fak.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: 'https://res.cloudinary.com/dxzw1zwez/image/upload/w_512,h_512,c_fit/v1768790415/mr_gutter_blue_complete_vr9fak.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
+        ],
+        shortcuts: [
+          {
+            name: 'Add Job',
+            short_name: 'Add Job',
+            description: 'Add a new gutter job',
+            url: '/jobs/new',
+            icons: [{ src: 'https://res.cloudinary.com/dxzw1zwez/image/upload/w_96,h_96,c_fit/v1768790415/mr_gutter_blue_complete_vr9fak.png', sizes: '96x96' }]
+          },
+          {
+            name: 'Dashboard',
+            short_name: 'Dashboard',
+            description: 'View production dashboard',
+            url: '/',
+            icons: [{ src: 'https://res.cloudinary.com/dxzw1zwez/image/upload/w_96,h_96,c_fit/v1768790415/mr_gutter_blue_complete_vr9fak.png', sizes: '96x96' }]
           }
         ]
       },
@@ -36,7 +58,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/mr-gutter-worker\..*\.workers\.dev\/.*/i,
+            urlPattern: /^https:\/\/mr-gutter-software\.micaiah-tasks\.workers\.dev\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
@@ -46,6 +68,17 @@ export default defineConfig({
               },
               cacheableResponse: {
                 statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/res\.cloudinary\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'image-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 30
               }
             }
           }
