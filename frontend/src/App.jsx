@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import JobsList from './pages/JobsList';
 import JobForm from './pages/JobForm';
 import Goals from './pages/Goals';
+import EstimatesPipeline from './pages/EstimatesPipeline';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
+            <Route path="estimates" element={<EstimatesPipeline />} />
             <Route path="jobs" element={<JobsList />} />
             <Route path="jobs/new" element={<JobForm />} />
             <Route path="jobs/:id/edit" element={<JobForm />} />
