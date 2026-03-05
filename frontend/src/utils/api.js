@@ -1,60 +1,55 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://mr-gutter-software.micaiah-tasks.workers.dev';
+const API_URL = import.meta.env.VITE_API_URL || 'https://mr-gutter-api.example.workers.dev';
 
-export class ApiError extends Error {
-  constructor(message, status, data = null) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.data = data;
-  }
-}
+class ApiClient {
+  async request(endpoint, options = {}) {
+    const url = `${API_URL}${endpoint}`;
+    const config = {
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+      ...options,
+    };
 
-async function request(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
-  const config = {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  };
+    if (options.body && typeof options.body === 'object') {
+      config.body = JSON.stringify(options.body);
+    }
 
-  try {
     const response = await fetch(url, config);
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-      throw new ApiError(data.error || 'An error occurred', response.status, data);
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Request failed' }));
+      throw new Error(error.message || `HTTP ${response.status}`);
     }
-    return data;
-  } catch (error) {
-    if (error instanceof ApiError) throw error;
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new ApiError('Unable to connect to server.', 0);
-    }
-    throw new ApiError(error.message || 'An unexpected error occurred', 0);
+
+    return response.json();
   }
+
+  // Jobs
+  getJobs(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/jobs${query ? `?${query}` : ''}`);
+  }
+  getJob(id) { return this.request(`/jobs/${id}`); }
+  createJob(data) { return this.request('/jobs', { method: 'POST', body: data }); }
+  updateJob(id, data) { return this.request(`/jobs/${id}`, { method: 'PUT', body: data }); }
+  deleteJob(id) { return this.request(`/jobs/${id}`, { method: 'DELETE' }); }
+
+  // Goals
+  getGoals(year) { return this.request(`/goals/${year}`); }
+  setGoals(year, data) { return this.request(`/goals/${year}`, { method: 'PUT', body: data }); }
+
+  // Stats
+  getSummary() { return this.request('/stats/summary'); }
+  getZipcodeStats() { return this.request('/stats/zipcodes'); }
+
+  // Estimates
+  getEstimates(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/estimates${query ? `?${query}` : ''}`);
+  }
+  getEstimate(id) { return this.request(`/estimates/${id}`); }
+  createEstimate(data) { return this.request('/estimates', { method: 'POST', body: data }); }
+  updateEstimate(id, data) { return this.request(`/estimates/${id}`, { method: 'PUT', body: data }); }
+  deleteEstimate(id) { return this.request(`/estimates/${id}`, { method: 'DELETE' }); }
+  getEstimateStats() { return this.request('/estimates/stats'); }
 }
 
-export const api = {
-  async getJobs(filters = {}) {
-    const params = new URLSearchParams();
-    if (filters.start_date) params.append('start_date', filters.start_date);
-    if (filters.end_date) params.append('end_date', filters.end_date);
-    if (filters.zipcode) params.append('zipcode', filters.zipcode);
-    const query = params.toString();
-    return request(`/jobs${query ? `?${query}` : ''}`);
-  },
-  async getJob(id) { return request(`/jobs/${id}`); },
-  async createJob(job) { return request('/jobs', { method: 'POST', body: JSON.stringify(job) }); },
-  async updateJob(id, updates) { return request(`/jobs/${id}`, { method: 'PUT', body: JSON.stringify(updates) }); },
-  async deleteJob(id) { return request(`/jobs/${id}`, { method: 'DELETE' }); },
-  async getGoals(year) { return request(`/goals/${year}`); },
-  async setGoals(year, goals) { return request(`/goals/${year}`, { method: 'PUT', body: JSON.stringify(goals) }); },
-  async getSummary() { return request('/stats/summary'); },
-  async getZipcodeStats(filters = {}) {
-    const params = new URLSearchParams();
-    if (filters.start_date) params.append('start_date', filters.start_date);
-    if (filters.end_date) params.append('end_date', filters.end_date);
-    const query = params.toString();
-    return request(`/stats/zipcodes${query ? `?${query}` : ''}`);
-  },
-};
-
-export default api;
+export default new ApiClient();
