@@ -29,8 +29,19 @@ export default function Alice({ estimates = [], jobs = [], goals = null }) {
     const activeEstimates = estimates.filter(e => e.stage !== 'sold');
     const pipelineTotal = activeEstimates.reduce((s, e) => s + (e.estimate_amount || 0), 0);
     
-    const estimatesList = activeEstimates.map(e => 
-      `[${e.id}] ${e.client_name} - ${e.zipcode} - $${e.estimate_amount || 0} - Stage: ${e.stage}`
+    // Calculate temperature counts
+    const now = new Date();
+    const temps = { hot: 0, warm: 0, cold: 0 };
+    activeEstimates.forEach(e => {
+      if (!e.created_at) return;
+      const days = Math.floor((now - new Date(e.created_at)) / (1000 * 60 * 60 * 24));
+      if (days <= 7) temps.hot++;
+      else if (days <= 21) temps.warm++;
+      else temps.cold++;
+    });
+
+    const estimatesList = activeEstimates.slice(0, 15).map(e => 
+      `[${e.id}] ${e.client_name} - ${e.zipcode} - $${e.estimate_amount || 0} - ${e.stage}`
     ).join('\n') || 'None';
 
     const recentJobs = jobs.slice(0, 10).map(j => 
@@ -39,13 +50,16 @@ export default function Alice({ estimates = [], jobs = [], goals = null }) {
 
     const yearlyGoal = goals?.yearly_target || 300000;
 
-    return `You are Alice, a friendly AI assistant for Mr Gutter Production Tracker. You help Denny manage his gutter business.
+    return `You are Alice, the AI assistant for Mr Gutter Production Tracker. You help Denny manage his gutter installation business.
 
 CURRENT STATE:
 
-PIPELINE TOTAL: $${pipelineTotal.toLocaleString()}
+PIPELINE: $${pipelineTotal.toLocaleString()} total (${activeEstimates.length} estimates)
+- Hot (under 1 week): ${temps.hot}
+- Warm (1-3 weeks): ${temps.warm}  
+- Cold (3+ weeks): ${temps.cold}
 
-ACTIVE ESTIMATES (${activeEstimates.length}):
+ACTIVE ESTIMATES:
 ${estimatesList}
 
 RECENT JOBS (${jobs.length} total):
@@ -53,14 +67,29 @@ ${recentJobs}
 
 YEARLY GOAL: $${yearlyGoal.toLocaleString()}
 
-You can help with:
-- Adding new estimates/leads
-- Moving estimates through the pipeline
-- Answering questions about the business
-- Providing insights on hot/warm/cold leads
+CAPABILITIES:
+- Add new estimates/leads to the pipeline
+- Move estimates between stages (waiting, estimated, follow_up_1, follow_up_2, follow_up_3, sold)
+- Update estimate amounts
+- Create completed job records
+- Search for estimates by client name
+- Provide pipeline summaries and insights
 
-Be conversational, warm, and helpful. Keep responses concise. Use emoji sparingly but naturally.
-When referring to estimates or jobs, use the client name rather than IDs.`;
+PERSONALITY & GUARDRAILS:
+- Be warm but efficient. You're a secretary, not a therapist.
+- Keep responses to 1-3 sentences unless explaining something complex.
+- Don't ask "Is there anything else?" or "How can I help?" - just wait.
+- Don't over-explain what you did. "Done." or "Added." is often enough.
+- Don't repeat back information the user just gave you.
+- No small talk unless the user initiates it.
+- If asked about yourself, keep it brief and redirect to work.
+- Never use emojis in your responses.
+- When you take an action, confirm briefly: "Added to pipeline." not "I've successfully added that lead to your pipeline for you!"
+- If something is unclear, ask ONE clarifying question, not multiple.
+- When referring to estimates, use the client name, not the ID.
+- Don't make up data - only reference what's in the current state above.
+- If you can't do something, say so briefly and suggest an alternative.
+- Stay focused on Mr Gutter business operations only.`;
   };
 
   const sendMessage = async () => {
@@ -91,7 +120,7 @@ When referring to estimates or jobs, use the client name rather than IDs.`;
       console.error('Alice error:', err);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: 'Sorry, I ran into an issue. Please try again!' 
+        content: 'Sorry, I ran into an issue. Please try again.' 
       }]);
     } finally {
       setLoading(false);
@@ -145,7 +174,7 @@ When referring to estimates or jobs, use the client name rather than IDs.`;
               </div>
               <div>
                 <h3 className="font-display font-bold text-white tracking-wide">Alice</h3>
-                <p className="text-xs text-white/70">Your AI Assistant</p>
+                <p className="text-xs text-white/70">AI Assistant</p>
               </div>
             </div>
             <button 
@@ -164,9 +193,9 @@ When referring to estimates or jobs, use the client name rather than IDs.`;
                 <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: 'var(--blue-light)', color: 'var(--blue)' }}>
                   <SparklesIcon />
                 </div>
-                <p className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Hey! I'm Alice 👋</p>
+                <p className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Hey, I'm Alice.</p>
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  Ask me about your pipeline, add leads, or get insights on your business.
+                  Add leads, check your pipeline, or ask me anything about the business.
                 </p>
               </div>
             )}
@@ -216,7 +245,7 @@ When referring to estimates or jobs, use the client name rather than IDs.`;
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask Alice anything..."
+                placeholder="Ask Alice..."
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm"
                 style={{ 
                   background: 'var(--bg-tertiary)', 
