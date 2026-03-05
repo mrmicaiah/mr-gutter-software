@@ -50,6 +50,9 @@ class ApiClient {
   updateEstimate(id, data) { return this.request(`/estimates/${id}`, { method: 'PUT', body: data }); }
   deleteEstimate(id) { return this.request(`/estimates/${id}`, { method: 'DELETE' }); }
   getEstimateStats() { return this.request('/estimates/stats'); }
+
+  // Alice AI
+  askAlice(data) { return this.request('/alice', { method: 'POST', body: data }); }
 }
 
 export default new ApiClient();
