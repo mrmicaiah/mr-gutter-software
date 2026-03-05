@@ -18,31 +18,30 @@ const LoadingSkeleton = () => (
   </div>
 );
 
-// Section header with description
-const SectionHeader = ({ title, description }) => (
-  <div className="mb-4">
-    <h2 className="font-display text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>{title}</h2>
-    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{description}</p>
-  </div>
-);
-
-// Stat card for weekly summary
-const WeeklyStatCard = ({ label, value, subLabel, icon, color = 'blue' }) => {
-  const colors = {
-    blue: { bg: 'var(--blue-light)', text: 'var(--blue)' },
-    green: { bg: 'var(--green-light)', text: 'var(--green)' },
-    gold: { bg: 'var(--gold-light)', text: 'var(--gold)' },
-  };
-  const c = colors[color] || colors.blue;
+// Date range toggle component
+const DateRangeToggle = ({ value, onChange }) => {
+  const options = [
+    { key: 'week', label: 'Week' },
+    { key: 'month', label: 'Month' },
+    { key: 'year', label: 'Year' },
+  ];
   
   return (
-    <div className="p-4 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)' }}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{label}</span>
-        <span className="w-8 h-8 rounded-lg flex items-center justify-center text-lg" style={{ background: c.bg, color: c.text }}>{icon}</span>
-      </div>
-      <p className="font-display text-2xl font-bold" style={{ color: c.text }}>{value}</p>
-      {subLabel && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{subLabel}</p>}
+    <div className="inline-flex rounded-lg p-1" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)' }}>
+      {options.map(opt => (
+        <button
+          key={opt.key}
+          onClick={() => onChange(opt.key)}
+          className="px-4 py-2 text-sm font-semibold rounded-md transition-all"
+          style={{
+            background: value === opt.key ? 'var(--blue)' : 'transparent',
+            color: value === opt.key ? 'white' : 'var(--text-muted)',
+            boxShadow: value === opt.key ? 'var(--shadow-brand)' : 'none',
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
     </div>
   );
 };
@@ -52,6 +51,7 @@ export default function Dashboard() {
   const { error: showError } = useToast();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [dateRange, setDateRange] = useState('month');
   const [data, setData] = useState({ summary: null, zipcodes: [], recentJobs: [], goals: null });
 
   useEffect(() => { fetchAllData(); }, []);
@@ -78,28 +78,37 @@ export default function Dashboard() {
   const summary = data.summary || {};
   const week = summary.week || {};
   const month = summary.month || {};
+  const quarter = summary.quarter || {};
   const year = summary.year || {};
   
-  // Weekly stats
-  const weekProduction = week.total_production || 0;
-  const weekProfit = week.total_profit || 0;
-  const weekJobs = week.job_count || 0;
-  const weekAvgProfit = week.avg_profit_per_job || 0;
-  const weekProfitMargin = weekProduction > 0 ? (weekProfit / weekProduction) * 100 : 0;
+  // Get stats based on selected date range
+  const getStats = () => {
+    const ranges = {
+      week: { data: week, label: 'This Week', goalDivisor: 52 },
+      month: { data: month, label: new Date().toLocaleDateString('en-US', { month: 'long' }), goalDivisor: 12 },
+      year: { data: year, label: String(currentYear), goalDivisor: 1 },
+    };
+    const selected = ranges[dateRange];
+    const d = selected.data;
+    const yearlyGoal = year.goal || data.goals?.yearly_target || 300000;
+    const periodGoal = yearlyGoal / selected.goalDivisor;
+    
+    return {
+      production: d.total_production || 0,
+      profit: d.total_profit || 0,
+      jobs: d.job_count || 0,
+      avgProfit: d.avg_profit_per_job || 0,
+      label: selected.label,
+      goal: periodGoal,
+      yearlyGoal,
+    };
+  };
   
-  // Monthly stats
-  const monthProduction = month.total_production || 0;
-  const monthProfit = month.total_profit || 0;
-  const monthJobs = month.job_count || 0;
-  const monthProfitMargin = monthProduction > 0 ? (monthProfit / monthProduction) * 100 : 0;
-  
-  // Yearly stats
+  const stats = getStats();
+  const profitMargin = stats.production > 0 ? (stats.profit / stats.production) * 100 : 0;
   const yearProduction = year.total_production || 0;
-  const yearlyGoal = year.goal || data.goals?.yearly_target || 300000;
-  const weeklyGoal = yearlyGoal / 52;
-  const monthlyGoal = yearlyGoal / 12;
   
-  // Find best job this week
+  // Find best job
   const bestJob = data.recentJobs.reduce((best, job) => {
     const profit = (job.full_price || 0) - (job.material_cost || 0) - (job.workers_cost || 0);
     const bestProfit = best ? (best.full_price || 0) - (best.material_cost || 0) - (best.workers_cost || 0) : 0;
@@ -110,7 +119,6 @@ export default function Dashboard() {
 
   if (loading) return (
     <div className="p-4 lg:p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6"><div><div className="h-8 w-48 rounded" style={{ background: 'var(--bg-tertiary)' }} /><div className="h-4 w-32 mt-2 rounded" style={{ background: 'var(--bg-tertiary)' }} /></div></div>
       <LoadingSkeleton />
     </div>
   );
@@ -129,81 +137,65 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* THIS WEEK Section */}
-      <SectionHeader 
-        title="📅 This Week" 
-        description="Your weekly production numbers at a glance. Week resets every Sunday."
-      />
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <WeeklyStatCard label="Production" value={formatMoney(weekProduction)} subLabel={`Goal: ${formatMoney(weeklyGoal)}`} icon="💰" color="blue" />
-        <WeeklyStatCard label="Profit" value={formatMoney(weekProfit)} subLabel={`${weekProfitMargin.toFixed(0)}% margin`} icon="📈" color="green" />
-        <WeeklyStatCard label="Jobs" value={weekJobs} subLabel={`Avg: ${formatMoney(weekAvgProfit)}/job`} icon="🔧" color="gold" />
-        <WeeklyStatCard label="Weekly Goal" value={`${Math.min(100, (weekProduction / weeklyGoal * 100)).toFixed(0)}%`} subLabel={weekProduction >= weeklyGoal ? '🔥 Crushing it!' : `${formatMoney(weeklyGoal - weekProduction)} to go`} icon="🎯" color={weekProduction >= weeklyGoal ? 'green' : 'blue'} />
+      {/* Date Range Toggle + Money Counter Hero */}
+      <div className="mb-6 p-6 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)' }}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Viewing</p>
+            <p className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{stats.label}</p>
+          </div>
+          <DateRangeToggle value={dateRange} onChange={setDateRange} />
+        </div>
+        <MoneyCounter value={stats.production} label={`${stats.label} Production`} />
       </div>
 
-      {/* GAUGES Section */}
-      <SectionHeader 
-        title="📊 Performance Gauges" 
-        description="Visual tracking of your key metrics. Speedometer shows weekly progress, dial shows profit health, ring shows yearly goal."
-      />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Main Gauges - respond to date range */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div>
-          <SpeedometerGauge value={weekProduction} goal={weeklyGoal} label="Weekly Production" />
-          <p className="text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>Needle shows progress toward weekly target</p>
+          <SpeedometerGauge value={stats.production} goal={stats.goal} label={`${stats.label} Production`} />
+          <p className="text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>Production vs {dateRange === 'year' ? 'yearly' : dateRange + 'ly'} goal</p>
         </div>
         <div>
-          <ProfitDial profit={monthProfit} revenue={monthProduction} />
-          <p className="text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>Green = healthy margins, Red = needs attention</p>
+          <ProfitDial profit={stats.profit} revenue={stats.production} />
+          <p className="text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>Profit margin — green is healthy, red needs work</p>
         </div>
         <div>
-          <GoalRing current={yearProduction} goal={yearlyGoal} label={`${currentYear} Goal`} />
-          <p className="text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>Ring fills as you hit your yearly target</p>
-        </div>
-        <div>
-          <MoneyCounter value={monthProduction} label={`${new Date().toLocaleDateString('en-US', { month: 'long' })} Total`} />
-          <p className="text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>Total production this month</p>
+          <GoalRing current={yearProduction} goal={stats.yearlyGoal} label={`${currentYear} Goal`} />
+          <p className="text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>Year-to-date progress toward annual goal</p>
         </div>
       </div>
 
-      {/* MONTHLY SUMMARY */}
-      <SectionHeader 
-        title="📆 Monthly Summary" 
-        description={`${new Date().toLocaleDateString('en-US', { month: 'long' })} performance overview.`}
-      />
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <WeeklyStatCard label="Production" value={formatMoney(monthProduction)} subLabel={`Goal: ${formatMoney(monthlyGoal)}`} icon="💵" color="blue" />
-        <WeeklyStatCard label="Profit" value={formatMoney(monthProfit)} subLabel={`${monthProfitMargin.toFixed(0)}% margin`} icon="📊" color="green" />
-        <WeeklyStatCard label="Jobs Completed" value={monthJobs} icon="✅" color="gold" />
-        <WeeklyStatCard label="Monthly Goal" value={`${Math.min(100, (monthProduction / monthlyGoal * 100)).toFixed(0)}%`} subLabel={monthProduction >= monthlyGoal ? '🎉 Goal hit!' : `${formatMoney(monthlyGoal - monthProduction)} to go`} icon="🏆" color={monthProduction >= monthlyGoal ? 'green' : 'blue'} />
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="p-4 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Jobs</p>
+          <p className="font-display text-2xl font-bold" style={{ color: 'var(--blue)' }}>{stats.jobs}</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{stats.label}</p>
+        </div>
+        <div className="p-4 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Profit</p>
+          <p className="font-display text-2xl font-bold" style={{ color: 'var(--green)' }}>{formatMoney(stats.profit)}</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{stats.label}</p>
+        </div>
+        <div className="p-4 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Avg per Job</p>
+          <p className="font-display text-2xl font-bold" style={{ color: 'var(--gold)' }}>{formatMoney(stats.avgProfit)}</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Profit per job</p>
+        </div>
+        <div className="p-4 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Margin</p>
+          <p className="font-display text-2xl font-bold" style={{ color: profitMargin >= 35 ? 'var(--green)' : profitMargin >= 20 ? 'var(--gold)' : 'var(--red)' }}>{profitMargin.toFixed(1)}%</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Profit margin</p>
+        </div>
       </div>
 
       {/* Best Job */}
-      {bestJob && (
-        <>
-          <SectionHeader 
-            title="⭐ Top Performer" 
-            description="Highest profit job from recent work."
-          />
-          <div className="mb-8"><BestJobCard job={bestJob} /></div>
-        </>
-      )}
+      {bestJob && <div className="mb-6"><BestJobCard job={bestJob} /></div>}
 
       {/* Two Column */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-          <SectionHeader 
-            title="📍 Zipcode Breakdown" 
-            description="See which areas are bringing in the most revenue."
-          />
-          <ZipcodeLeaderboard data={data.zipcodes} />
-        </div>
-        <div>
-          <SectionHeader 
-            title="🕐 Recent Jobs" 
-            description="Your latest completed jobs."
-          />
-          <RecentJobsFeed jobs={data.recentJobs} />
-        </div>
+        <ZipcodeLeaderboard data={data.zipcodes} />
+        <RecentJobsFeed jobs={data.recentJobs} />
       </div>
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
