@@ -9,7 +9,8 @@ const PlusIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="no
 const GoalsIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>);
 const SunIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>);
 const MoonIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>);
-const GutterIcon = () => (<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>);
+
+const MR_GUTTER_LOGO = 'https://res.cloudinary.com/dxzw1zwez/image/upload/v1768790415/mr_gutter_blue_complete_vr9fak.png';
 
 const NAV_ITEMS = [
   { to: '/', icon: DashboardIcon, label: 'Command Center' },
@@ -28,7 +29,7 @@ export default function Sidebar({ isOpen, onClose }) {
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 lg:transform-none ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: 'var(--bg-card)', borderRight: '1px solid var(--border-primary)' }}>
         <div className="flex flex-col h-full">
           <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-primary)' }}>
-            <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--blue)', color: 'white' }}><GutterIcon /></div><div><h1 className="font-display text-lg font-bold tracking-wider" style={{ color: 'var(--text-primary)' }}>MR GUTTER</h1><p className="text-xs" style={{ color: 'var(--text-muted)' }}>Production Tracker</p></div></div>
+            <img src={MR_GUTTER_LOGO} alt="Mr Gutter" className="h-12 w-auto" />
             <button onClick={onClose} className="lg:hidden p-2 rounded-lg" style={{ color: 'var(--text-muted)' }}><CloseIcon /></button>
           </div>
           <nav className="flex-1 p-4 space-y-1">
