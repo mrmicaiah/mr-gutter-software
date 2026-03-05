@@ -10,7 +10,7 @@ const GoalsIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="n
 const SunIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>);
 const MoonIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>);
 
-const MR_GUTTER_LOGO = 'https://res.cloudinary.com/dxzw1zwez/image/upload/v1768790415/mr_gutter_blue_complete_vr9fak.png';
+const MR_GUTTER_LOGO = 'https://res.cloudinary.com/dxzw1zwez/image/upload/w_200,h_80,c_fit/v1768790415/mr_gutter_blue_complete_vr9fak.png';
 
 const NAV_ITEMS = [
   { to: '/', icon: DashboardIcon, label: 'Command Center' },
@@ -27,13 +27,27 @@ export default function Sidebar({ isOpen, onClose }) {
   return (
     <>
       {isOpen && <div className="lg:hidden fixed inset-0 bg-black/50 z-40" onClick={onClose} />}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 lg:transform-none ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} style={{ background: 'var(--bg-card)', borderRight: '1px solid var(--border-primary)' }}>
+      <aside 
+        className={`fixed lg:static inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:transform-none ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`} 
+        style={{ 
+          background: 'var(--bg-card)', 
+          borderRight: '1px solid var(--border-primary)',
+          width: '256px',
+          minWidth: '256px',
+          maxWidth: '256px',
+          flexShrink: 0,
+        }}
+      >
         <div className="flex flex-col h-full">
           <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-primary)' }}>
-            <img src={MR_GUTTER_LOGO} alt="Mr Gutter" className="h-12 w-auto" />
+            <img 
+              src={MR_GUTTER_LOGO} 
+              alt="Mr Gutter" 
+              style={{ height: '48px', width: 'auto', maxWidth: '180px', objectFit: 'contain' }} 
+            />
             <button onClick={onClose} className="lg:hidden p-2 rounded-lg" style={{ color: 'var(--text-muted)' }}><CloseIcon /></button>
           </div>
-          <nav className="flex-1 p-4 space-y-1">
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
             {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
               <NavLink key={to} to={to} end={to === '/'} onClick={onClose} className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-colors">
                 {({ isActive }) => (<><div style={{ color: isActive ? 'var(--blue)' : 'var(--text-muted)' }}><Icon /></div><span style={{ color: isActive ? 'var(--blue)' : 'var(--text-secondary)' }}>{label}</span></>)}
