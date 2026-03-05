@@ -35,13 +35,13 @@ export default function Dashboard() {
       const [summaryRes, zipcodesRes, jobsRes, goalsRes] = await Promise.allSettled([
         api.getSummary(),
         api.getZipcodeStats(),
-        api.getJobs({ limit: 10 }),
+        api.getJobs(),
         api.getGoals(currentYear),
       ]);
       setData({
         summary: summaryRes.status === 'fulfilled' ? summaryRes.value.data : null,
         zipcodes: zipcodesRes.status === 'fulfilled' ? zipcodesRes.value.data || [] : [],
-        recentJobs: jobsRes.status === 'fulfilled' ? jobsRes.value.data || [] : [],
+        recentJobs: jobsRes.status === 'fulfilled' ? (jobsRes.value.data || []).slice(0, 10) : [],
         goals: goalsRes.status === 'fulfilled' ? goalsRes.value.data : null,
       });
     } catch (e) { showError('Failed to load dashboard'); }
@@ -51,14 +51,26 @@ export default function Dashboard() {
   const summary = data.summary || {};
   const week = summary.week || {};
   const month = summary.month || {};
-  const prevWeek = summary.prev_week || {};
-  const prevMonth = summary.prev_month || {};
+  const quarter = summary.quarter || {};
   const year = summary.year || {};
-  const yearlyGoal = data.goals?.yearly_target || 500000;
-  const weeklyGoal = yearlyGoal / 52;
-  const monthProfit = (month.production || 0) - (month.costs || 0);
-  const monthRevenue = month.production || 1;
   
+  // Use actual API field names
+  const weekProduction = week.total_production || 0;
+  const weekProfit = week.total_profit || 0;
+  const weekJobs = week.job_count || 0;
+  
+  const monthProduction = month.total_production || 0;
+  const monthProfit = month.total_profit || 0;
+  const monthJobs = month.job_count || 0;
+  
+  const yearProduction = year.total_production || 0;
+  const yearlyGoal = year.goal || data.goals?.yearly_target || 300000;
+  const weeklyGoal = yearlyGoal / 52;
+  
+  // Calculate profit margin
+  const profitMargin = monthProduction > 0 ? (monthProfit / monthProduction) * 100 : 0;
+  
+  // Find best job
   const bestJob = data.recentJobs.reduce((best, job) => {
     const profit = (job.full_price || 0) - (job.material_cost || 0) - (job.workers_cost || 0);
     const bestProfit = best ? (best.full_price || 0) - (best.material_cost || 0) - (best.workers_cost || 0) : 0;
@@ -81,34 +93,34 @@ export default function Dashboard() {
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
         </div>
         <button onClick={() => fetchAllData(true)} disabled={refreshing} className="btn btn-secondary" style={{ opacity: refreshing ? 0.6 : 1 }}>
-          <span style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }}><RefreshIcon /></span>
+          <span style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none', display: 'inline-block' }}><RefreshIcon /></span>
           {refreshing ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
 
       {/* Money Counter Hero */}
       <div className="mb-6">
-        <MoneyCounter value={month.production || 0} label={`${new Date().toLocaleDateString('en-US', { month: 'long' })} Production`} />
+        <MoneyCounter value={monthProduction} label={`${new Date().toLocaleDateString('en-US', { month: 'long' })} Production`} />
       </div>
 
       {/* Gauges Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <SpeedometerGauge value={week.production || 0} goal={weeklyGoal} label="Weekly Production" />
-        <ProfitDial profit={monthProfit} revenue={monthRevenue} />
-        <GoalRing current={year.production || 0} goal={yearlyGoal} label={`${currentYear} Goal`} />
-        <StreakBadge streak={summary.streak || 0} bestStreak={summary.best_streak || 0} />
+        <SpeedometerGauge value={weekProduction} goal={weeklyGoal} label="Weekly Production" />
+        <ProfitDial profit={monthProfit} revenue={monthProduction} />
+        <GoalRing current={yearProduction} goal={yearlyGoal} label={`${currentYear} Goal`} />
+        <StreakBadge streak={weekJobs} bestStreak={monthJobs} />
       </div>
 
-      {/* Comparison Cards */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <ComparisonCard current={week.production || 0} previous={prevWeek.production || 0} label="This Week" />
-        <ComparisonCard current={month.production || 0} previous={prevMonth.production || 0} label="This Month" />
-        <ComparisonCard current={week.jobs || 0} previous={prevWeek.jobs || 0} label="Jobs This Week" format="number" />
-        <ComparisonCard current={monthProfit > 0 ? (monthProfit / monthRevenue) * 100 : 0} previous={prevMonth.margin || 0} label="Profit Margin" format="percent" />
+        <ComparisonCard current={weekProduction} previous={0} label="This Week" />
+        <ComparisonCard current={monthProduction} previous={0} label="This Month" />
+        <ComparisonCard current={weekJobs} previous={0} label="Jobs This Week" format="number" />
+        <ComparisonCard current={profitMargin} previous={0} label="Profit Margin" format="percent" />
       </div>
 
       {/* Best Job */}
-      <div className="mb-6"><BestJobCard job={bestJob} /></div>
+      {bestJob && <div className="mb-6"><BestJobCard job={bestJob} /></div>}
 
       {/* Two Column */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
