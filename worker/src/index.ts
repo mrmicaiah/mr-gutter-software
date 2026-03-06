@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
-// Types
 interface Env {
   DB: D1Database;
   ANTHROPIC_API_KEY: string;
@@ -10,8 +9,6 @@ interface Env {
 interface Job {
   id: string;
   client_name: string;
-  phone?: string;
-  zipcode: string;
   full_price: number;
   material_cost: number;
   workers_cost: number;
@@ -35,8 +32,6 @@ interface Goal {
 interface Estimate {
   id: string;
   client_name: string;
-  phone?: string;
-  zipcode: string;
   estimate_amount?: number;
   stage: 'waiting' | 'estimated' | 'follow_up_1' | 'follow_up_2' | 'follow_up_3' | 'sold' | 'lost';
   notes?: string;
@@ -87,12 +82,10 @@ const ALICE_TOOLS = [
       type: "object",
       properties: {
         client_name: { type: "string", description: "Customer name" },
-        phone: { type: "string", description: "Phone number (optional)" },
-        zipcode: { type: "string", description: "5-digit zipcode" },
         estimate_amount: { type: "number", description: "Estimate amount in dollars (optional)" },
         notes: { type: "string", description: "Notes about the lead (optional)" }
       },
-      required: ["client_name", "zipcode"]
+      required: ["client_name"]
     }
   },
   {
@@ -126,14 +119,12 @@ const ALICE_TOOLS = [
       type: "object",
       properties: {
         client_name: { type: "string", description: "Customer name" },
-        phone: { type: "string", description: "Phone number (optional)" },
-        zipcode: { type: "string", description: "5-digit zipcode" },
         full_price: { type: "number", description: "Total job price" },
         material_cost: { type: "number", description: "Material cost" },
         workers_cost: { type: "number", description: "Labor cost" },
         job_date: { type: "string", description: "Job date (YYYY-MM-DD)" }
       },
-      required: ["client_name", "zipcode", "full_price", "material_cost", "workers_cost", "job_date"]
+      required: ["client_name", "full_price", "material_cost", "workers_cost", "job_date"]
     }
   },
   {
@@ -160,8 +151,8 @@ async function executeAliceTool(db: D1Database, toolName: string, input: any): P
   switch (toolName) {
     case 'add_estimate': {
       const id = generateUUID();
-      await db.prepare(`INSERT INTO estimates (id, client_name, phone, zipcode, estimate_amount, stage, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .bind(id, input.client_name, input.phone || null, input.zipcode, input.estimate_amount || null, 'waiting', input.notes || null, timestamp, timestamp).run();
+      await db.prepare(`INSERT INTO estimates (id, client_name, estimate_amount, stage, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        .bind(id, input.client_name, input.estimate_amount || null, 'waiting', input.notes || null, timestamp, timestamp).run();
       return { success: true, message: `Added ${input.client_name} to the pipeline`, id };
     }
     
@@ -179,8 +170,8 @@ async function executeAliceTool(db: D1Database, toolName: string, input: any): P
     
     case 'create_job': {
       const id = generateUUID();
-      await db.prepare(`INSERT INTO jobs (id, client_name, phone, zipcode, full_price, material_cost, workers_cost, job_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .bind(id, input.client_name, input.phone || null, input.zipcode, input.full_price, input.material_cost, input.workers_cost, input.job_date, timestamp, timestamp).run();
+      await db.prepare(`INSERT INTO jobs (id, client_name, full_price, material_cost, workers_cost, job_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(id, input.client_name, input.full_price, input.material_cost, input.workers_cost, input.job_date, timestamp, timestamp).run();
       const profit = input.full_price - input.material_cost - input.workers_cost;
       return { success: true, message: `Created job for ${input.client_name} - $${profit} profit`, id };
     }
@@ -215,7 +206,6 @@ app.post('/alice', async (c) => {
 
     let messages = [...body.messages];
     
-    // Initial API call
     let response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -234,7 +224,6 @@ app.post('/alice', async (c) => {
 
     let data = await response.json() as any;
 
-    // Tool execution loop
     while (data.stop_reason === 'tool_use') {
       messages.push({ role: 'assistant', content: data.content });
       
@@ -283,12 +272,11 @@ app.post('/alice', async (c) => {
 // ============================================
 
 app.get('/jobs', async (c) => {
-  const { start_date, end_date, zipcode } = c.req.query();
+  const { start_date, end_date } = c.req.query();
   let query = 'SELECT * FROM jobs WHERE 1=1';
   const params: string[] = [];
   if (start_date) { query += ' AND job_date >= ?'; params.push(start_date); }
   if (end_date) { query += ' AND job_date <= ?'; params.push(end_date); }
-  if (zipcode) { query += ' AND zipcode = ?'; params.push(zipcode); }
   query += ' ORDER BY job_date DESC';
   try {
     const result = await c.env.DB.prepare(query).bind(...params).all();
@@ -308,12 +296,12 @@ app.get('/jobs/:id', async (c) => {
 app.post('/jobs', async (c) => {
   try {
     const body = await c.req.json<Omit<Job, 'id' | 'profit' | 'created_at' | 'updated_at'>>();
-    if (!body.client_name || !body.zipcode || body.full_price === undefined || body.material_cost === undefined || body.workers_cost === undefined || !body.job_date) {
+    if (!body.client_name || body.full_price === undefined || body.material_cost === undefined || body.workers_cost === undefined || !body.job_date) {
       return c.json({ success: false, error: 'Missing required fields' }, 400);
     }
     const id = generateUUID();
     const timestamp = now();
-    await c.env.DB.prepare(`INSERT INTO jobs (id, client_name, phone, zipcode, full_price, material_cost, workers_cost, job_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, body.client_name, body.phone || null, body.zipcode, body.full_price, body.material_cost, body.workers_cost, body.job_date, timestamp, timestamp).run();
+    await c.env.DB.prepare(`INSERT INTO jobs (id, client_name, full_price, material_cost, workers_cost, job_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, body.client_name, body.full_price, body.material_cost, body.workers_cost, body.job_date, timestamp, timestamp).run();
     const created = await c.env.DB.prepare('SELECT * FROM jobs WHERE id = ?').bind(id).first();
     return c.json({ success: true, data: created }, 201);
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
@@ -329,8 +317,6 @@ app.put('/jobs/:id', async (c) => {
     const updates: string[] = [];
     const params: (string | number | null)[] = [];
     if (body.client_name !== undefined) { updates.push('client_name = ?'); params.push(body.client_name); }
-    if (body.phone !== undefined) { updates.push('phone = ?'); params.push(body.phone); }
-    if (body.zipcode !== undefined) { updates.push('zipcode = ?'); params.push(body.zipcode); }
     if (body.full_price !== undefined) { updates.push('full_price = ?'); params.push(body.full_price); }
     if (body.material_cost !== undefined) { updates.push('material_cost = ?'); params.push(body.material_cost); }
     if (body.workers_cost !== undefined) { updates.push('workers_cost = ?'); params.push(body.workers_cost); }
@@ -426,10 +412,10 @@ app.get('/estimates/:id', async (c) => {
 app.post('/estimates', async (c) => {
   try {
     const body = await c.req.json<Omit<Estimate, 'id' | 'created_at' | 'updated_at'>>();
-    if (!body.client_name || !body.zipcode) return c.json({ success: false, error: 'Missing required fields: client_name, zipcode' }, 400);
+    if (!body.client_name) return c.json({ success: false, error: 'Missing required field: client_name' }, 400);
     const id = generateUUID();
     const timestamp = now();
-    await c.env.DB.prepare(`INSERT INTO estimates (id, client_name, phone, zipcode, estimate_amount, stage, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, body.client_name, body.phone || null, body.zipcode, body.estimate_amount || null, body.stage || 'waiting', body.notes || null, timestamp, timestamp).run();
+    await c.env.DB.prepare(`INSERT INTO estimates (id, client_name, estimate_amount, stage, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(id, body.client_name, body.estimate_amount || null, body.stage || 'waiting', body.notes || null, timestamp, timestamp).run();
     const created = await c.env.DB.prepare('SELECT * FROM estimates WHERE id = ?').bind(id).first();
     return c.json({ success: true, data: created }, 201);
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
@@ -445,8 +431,6 @@ app.put('/estimates/:id', async (c) => {
     const updates: string[] = [];
     const params: (string | number | null)[] = [];
     if (body.client_name !== undefined) { updates.push('client_name = ?'); params.push(body.client_name); }
-    if (body.phone !== undefined) { updates.push('phone = ?'); params.push(body.phone); }
-    if (body.zipcode !== undefined) { updates.push('zipcode = ?'); params.push(body.zipcode); }
     if (body.estimate_amount !== undefined) { updates.push('estimate_amount = ?'); params.push(body.estimate_amount); }
     if (body.stage !== undefined) { updates.push('stage = ?'); params.push(body.stage); }
     if (body.notes !== undefined) { updates.push('notes = ?'); params.push(body.notes); }
@@ -496,19 +480,6 @@ app.get('/stats/summary', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-app.get('/stats/zipcodes', async (c) => {
-  const { start_date, end_date } = c.req.query();
-  let query = `SELECT zipcode, COUNT(*) as job_count, SUM(full_price) as total_production, SUM(profit) as total_profit, AVG(profit) as avg_profit, AVG(full_price) as avg_job_size FROM jobs WHERE 1=1`;
-  const params: string[] = [];
-  if (start_date) { query += ' AND job_date >= ?'; params.push(start_date); }
-  if (end_date) { query += ' AND job_date <= ?'; params.push(end_date); }
-  query += ' GROUP BY zipcode ORDER BY total_production DESC';
-  try {
-    const result = await c.env.DB.prepare(query).bind(...params).all();
-    return c.json({ success: true, data: result.results });
-  } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
-});
-
 // ============================================
 // HEALTH CHECK
 // ============================================
@@ -517,12 +488,12 @@ app.get('/', (c) => {
   return c.json({ 
     success: true, 
     message: 'Mr Gutter Production Tracker API',
-    version: '1.2.0',
+    version: '2.0.0',
     endpoints: {
       jobs: ['GET /jobs', 'GET /jobs/:id', 'POST /jobs', 'PUT /jobs/:id', 'DELETE /jobs/:id'],
       goals: ['GET /goals/:year', 'PUT /goals/:year'],
       estimates: ['GET /estimates', 'GET /estimates/:id', 'POST /estimates', 'PUT /estimates/:id', 'DELETE /estimates/:id', 'GET /estimates/stats'],
-      stats: ['GET /stats/summary', 'GET /stats/zipcodes'],
+      stats: ['GET /stats/summary'],
       alice: ['POST /alice']
     }
   });
