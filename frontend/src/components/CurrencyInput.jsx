@@ -1,91 +1,86 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
-export default function CurrencyInput({ value, onChange, id, name, placeholder = '0.00', required = false, disabled = false, error = false, className = '' }) {
-  const inputRef = useRef(null);
+export default function CurrencyInput({ value, onChange, error, placeholder = "0.00", compact = false }) {
   const [displayValue, setDisplayValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
 
-  // Only sync from prop when not focused (initial load or external changes)
   useEffect(() => {
     if (!isFocused) {
-      if (value === '' || value === null || value === undefined || value === 0) {
+      if (value === '' || value === null || value === undefined) {
         setDisplayValue('');
       } else {
         const num = parseFloat(value);
         if (!isNaN(num)) {
-          setDisplayValue(num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+          setDisplayValue(num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
         }
       }
     }
   }, [value, isFocused]);
 
   const handleChange = (e) => {
-    const rawValue = e.target.value;
-    
-    // Only allow digits and one decimal point
-    const cleaned = rawValue.replace(/[^0-9.]/g, '');
-    
-    // Prevent multiple decimal points
-    const parts = cleaned.split('.');
-    let sanitized = parts[0];
-    if (parts.length > 1) {
-      sanitized += '.' + parts[1].slice(0, 2);
-    }
-    
-    // Update display with raw input (no formatting while typing)
-    setDisplayValue(sanitized);
-    
-    // Send numeric value to parent
-    const numericValue = parseFloat(sanitized) || 0;
-    onChange(numericValue);
-  };
-
-  const handleBlur = () => {
-    setIsFocused(false);
-    
-    // Format on blur
-    if (value !== '' && value !== null && value !== undefined && value !== 0) {
-      const num = parseFloat(value);
-      if (!isNaN(num)) {
-        setDisplayValue(num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-      }
-    } else {
-      setDisplayValue('');
-    }
+    const raw = e.target.value.replace(/[^0-9.]/g, '');
+    const parts = raw.split('.');
+    const cleaned = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : raw;
+    setDisplayValue(cleaned);
+    onChange(cleaned);
   };
 
   const handleFocus = () => {
     setIsFocused(true);
-    
-    // Show raw number on focus (no commas, easier to edit)
-    if (value !== '' && value !== null && value !== undefined && value !== 0) {
-      const num = parseFloat(value);
+    if (value) {
+      setDisplayValue(String(value));
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (displayValue) {
+      const num = parseFloat(displayValue);
       if (!isNaN(num)) {
-        // Show without trailing zeros if whole number
-        setDisplayValue(num % 1 === 0 ? String(num) : num.toFixed(2));
+        onChange(num);
+        setDisplayValue(num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
       }
     }
   };
 
+  const baseStyles = {
+    background: 'var(--bg-tertiary)',
+    border: `1px solid ${error ? 'var(--red)' : 'var(--border-primary)'}`,
+    color: 'var(--text-primary)',
+  };
+
+  if (compact) {
+    return (
+      <div className="relative">
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-muted)' }}>$</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={displayValue}
+          onChange={handleChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholder={placeholder}
+          className="w-full pl-5 pr-2 py-1.5 rounded-lg text-sm"
+          style={baseStyles}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-semibold text-base" style={{ color: 'var(--text-muted)' }}>$</span>
+      <span className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>$</span>
       <input
-        ref={inputRef}
         type="text"
         inputMode="decimal"
-        id={id}
-        name={name}
         value={displayValue}
         onChange={handleChange}
-        onBlur={handleBlur}
         onFocus={handleFocus}
+        onBlur={handleBlur}
         placeholder={placeholder}
-        required={required}
-        disabled={disabled}
-        className={`input pl-8 ${className}`}
-        style={{ borderColor: error ? 'var(--red)' : undefined }}
-        autoComplete="off"
+        className="input pl-8"
+        style={baseStyles}
       />
     </div>
   );
