@@ -47,8 +47,6 @@ export default function EstimateFormPage() {
   
   const [form, setForm] = useState({
     client_name: '',
-    phone: '',
-    zipcode: '',
     estimate_amount: '',
     stage: 'waiting',
     notes: '',
@@ -69,8 +67,6 @@ export default function EstimateFormPage() {
       const e = res.data;
       setForm({
         client_name: e.client_name || '',
-        phone: e.phone || '',
-        zipcode: e.zipcode || '',
         estimate_amount: e.estimate_amount || '',
         stage: e.stage || 'waiting',
         notes: e.notes || '',
@@ -88,16 +84,9 @@ export default function EstimateFormPage() {
     if (errors[k]) setErrors(e => ({ ...e, [k]: null }));
   };
 
-  const formatPhone = (v) => {
-    const c = v.replace(/\D/g, '');
-    return c.length <= 3 ? c : c.length <= 6 ? `${c.slice(0,3)}-${c.slice(3)}` : `${c.slice(0,3)}-${c.slice(3,6)}-${c.slice(6,10)}`;
-  };
-
   const validate = () => {
     const e = {};
     if (!form.client_name.trim()) e.client_name = 'Required';
-    if (!form.zipcode.trim()) e.zipcode = 'Required';
-    else if (!/^\d{5}$/.test(form.zipcode)) e.zipcode = 'Invalid zipcode';
     if (form.stage !== 'waiting' && !form.estimate_amount) e.estimate_amount = 'Required for this stage';
     setErrors(e);
     return !Object.keys(e).length;
@@ -110,8 +99,6 @@ export default function EstimateFormPage() {
     try {
       const data = {
         client_name: form.client_name.trim(),
-        phone: form.phone.trim() || null,
-        zipcode: form.zipcode.trim(),
         estimate_amount: form.estimate_amount ? parseFloat(form.estimate_amount) : null,
         stage: form.stage,
         notes: form.notes.trim() || null,
@@ -171,30 +158,6 @@ export default function EstimateFormPage() {
               style={{ borderColor: errors.client_name ? 'var(--red)' : undefined }}
             />
           </Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Phone">
-              <input
-                type="tel"
-                value={form.phone}
-                onChange={e => set('phone', formatPhone(e.target.value))}
-                className="input"
-                placeholder="256-555-1234"
-                maxLength={12}
-              />
-            </Field>
-            <Field label="Zipcode *" error={errors.zipcode}>
-              <input
-                type="text"
-                value={form.zipcode}
-                onChange={e => set('zipcode', e.target.value)}
-                className="input"
-                placeholder="35801"
-                maxLength={5}
-                inputMode="numeric"
-                style={{ borderColor: errors.zipcode ? 'var(--red)' : undefined }}
-              />
-            </Field>
-          </div>
         </Section>
 
         <Section title="Estimate Details" icon={DollarIcon}>
