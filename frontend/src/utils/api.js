@@ -3,8 +3,14 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://mr-gutter-software.mica
 class ApiClient {
   async request(endpoint, options = {}) {
     const url = `${API_URL}${endpoint}`;
+    const token = localStorage.getItem('token');
+    
     const config = {
-      headers: { 'Content-Type': 'application/json', ...options.headers },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...options.headers 
+      },
       ...options,
     };
 
@@ -14,12 +20,27 @@ class ApiClient {
 
     const response = await fetch(url, config);
     
+    // Handle 401 - clear token and redirect to login
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+      throw new Error('Session expired');
+    }
+    
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Request failed' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
 
     return response.json();
+  }
+
+  // Auth
+  login(email, password) {
+    return this.request('/auth/login', { method: 'POST', body: { email, password } });
+  }
+  verifyToken() {
+    return this.request('/auth/verify');
   }
 
   // Jobs
@@ -38,7 +59,6 @@ class ApiClient {
 
   // Stats
   getSummary() { return this.request('/stats/summary'); }
-  getZipcodeStats() { return this.request('/stats/zipcodes'); }
 
   // Estimates
   getEstimates(params = {}) {
