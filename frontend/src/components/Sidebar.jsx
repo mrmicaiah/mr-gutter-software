@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 const CloseIcon = () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>);
 const DashboardIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>);
@@ -10,6 +11,7 @@ const CalendarIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill
 const GoalsIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>);
 const SunIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>);
 const MoonIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>);
+const LogoutIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>);
 
 const MR_GUTTER_LOGO = 'https://res.cloudinary.com/dxzw1zwez/image/upload/w_200,h_80,c_fit/v1768790415/mr_gutter_blue_complete_vr9fak.png';
 
@@ -24,6 +26,13 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ isOpen, onClose }) {
   const { theme, toggleTheme } = useTheme();
+  const { logout, user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <>
@@ -55,9 +64,17 @@ export default function Sidebar({ isOpen, onClose }) {
               </NavLink>
             ))}
           </nav>
-          <div className="p-4" style={{ borderTop: '1px solid var(--border-primary)' }}>
+          <div className="p-4 space-y-2" style={{ borderTop: '1px solid var(--border-primary)' }}>
+            {user && (
+              <div className="px-4 py-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                Signed in as <span style={{ color: 'var(--text-secondary)' }}>{user.name || user.email}</span>
+              </div>
+            )}
             <button onClick={toggleTheme} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-colors" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
               {theme === 'dark' ? <SunIcon /> : <MoonIcon />}{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </button>
+            <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-colors" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--red)' }}>
+              <LogoutIcon /> Sign Out
             </button>
           </div>
         </div>
