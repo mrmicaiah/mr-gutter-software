@@ -8,15 +8,14 @@ const SaveIcon = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="no
 const STAGES = [{ key: 'waiting', label: 'Waiting on Estimate' }, { key: 'estimated', label: 'Estimated' }, { key: 'follow_up_1', label: 'Follow Up 1' }, { key: 'follow_up_2', label: 'Follow Up 2' }, { key: 'follow_up_3', label: 'Follow Up 3' }, { key: 'sold', label: 'Sold' }];
 
 export default function EstimateForm({ estimate, onSave, onDelete, onClose, isNew = false }) {
-  const [form, setForm] = useState({ client_name: '', phone: '', zipcode: '', estimate_amount: '', stage: 'waiting', notes: '' });
+  const [form, setForm] = useState({ client_name: '', estimate_amount: '', stage: 'waiting', notes: '' });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => { if (estimate) setForm({ client_name: estimate.client_name || '', phone: estimate.phone || '', zipcode: estimate.zipcode || '', estimate_amount: estimate.estimate_amount || '', stage: estimate.stage || 'waiting', notes: estimate.notes || '' }); }, [estimate]);
+  useEffect(() => { if (estimate) setForm({ client_name: estimate.client_name || '', estimate_amount: estimate.estimate_amount || '', stage: estimate.stage || 'waiting', notes: estimate.notes || '' }); }, [estimate]);
 
-  const formatPhone = (v) => { const c = v.replace(/\D/g, ''); return c.length <= 3 ? c : c.length <= 6 ? `${c.slice(0,3)}-${c.slice(3)}` : `${c.slice(0,3)}-${c.slice(3,6)}-${c.slice(6,10)}`; };
-  const validate = () => { const e = {}; if (!form.client_name.trim()) e.client_name = 'Required'; if (!form.zipcode.trim()) e.zipcode = 'Required'; else if (!/^\d{5}$/.test(form.zipcode)) e.zipcode = 'Invalid'; if (form.stage !== 'waiting' && !form.estimate_amount) e.estimate_amount = 'Required for this stage'; setErrors(e); return !Object.keys(e).length; };
+  const validate = () => { const e = {}; if (!form.client_name.trim()) e.client_name = 'Required'; if (form.stage !== 'waiting' && !form.estimate_amount) e.estimate_amount = 'Required for this stage'; setErrors(e); return !Object.keys(e).length; };
   const handleSave = async () => { if (!validate()) return; setSaving(true); try { await onSave({ ...form, estimate_amount: form.estimate_amount ? parseFloat(form.estimate_amount) : null }); } finally { setSaving(false); } };
   const handleDelete = async () => { if (!window.confirm('Delete this estimate?')) return; setDeleting(true); try { await onDelete(); } finally { setDeleting(false); } };
 
@@ -26,7 +25,6 @@ export default function EstimateForm({ estimate, onSave, onDelete, onClose, isNe
         <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border-primary)' }}><h2 className="font-display text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{isNew ? 'New Estimate' : 'Edit Estimate'}</h2><button onClick={onClose} className="p-1 rounded-lg" style={{ color: 'var(--text-muted)' }}><XIcon /></button></div>
         <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
           <div><label className="label">Client Name *</label><input type="text" value={form.client_name} onChange={e => setForm(f => ({ ...f, client_name: e.target.value }))} className="input" placeholder="John Smith" style={{ borderColor: errors.client_name ? 'var(--red)' : undefined }} />{errors.client_name && <p className="text-xs mt-1" style={{ color: 'var(--red)' }}>{errors.client_name}</p>}</div>
-          <div className="grid grid-cols-2 gap-4"><div><label className="label">Phone</label><input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: formatPhone(e.target.value) }))} className="input" placeholder="256-555-1234" maxLength={12} /></div><div><label className="label">Zipcode *</label><input type="text" value={form.zipcode} onChange={e => setForm(f => ({ ...f, zipcode: e.target.value }))} className="input" placeholder="35801" maxLength={5} inputMode="numeric" style={{ borderColor: errors.zipcode ? 'var(--red)' : undefined }} />{errors.zipcode && <p className="text-xs mt-1" style={{ color: 'var(--red)' }}>{errors.zipcode}</p>}</div></div>
           <div><label className="label">Estimate Amount {form.stage !== 'waiting' && '*'}</label><CurrencyInput value={form.estimate_amount} onChange={v => setForm(f => ({ ...f, estimate_amount: v }))} error={!!errors.estimate_amount} />{errors.estimate_amount && <p className="text-xs mt-1" style={{ color: 'var(--red)' }}>{errors.estimate_amount}</p>}</div>
           <div><label className="label">Stage</label><select value={form.stage} onChange={e => setForm(f => ({ ...f, stage: e.target.value }))} className="input">{STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>
           <div><label className="label">Notes</label><textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="input" rows={3} placeholder="Additional notes..." /></div>
