@@ -488,7 +488,7 @@ app.get('/', (c) => {
   return c.json({ 
     success: true, 
     message: 'Mr Gutter Production Tracker API',
-    version: '2.0.0',
+    version: '2.0.1',
     endpoints: {
       jobs: ['GET /jobs', 'GET /jobs/:id', 'POST /jobs', 'PUT /jobs/:id', 'DELETE /jobs/:id'],
       goals: ['GET /goals/:year', 'PUT /goals/:year'],
