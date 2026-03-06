@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 interface Env {
   DB: D1Database;
   ANTHROPIC_API_KEY: string;
+  JWT_SECRET: string;
 }
 
 interface Job {
@@ -39,7 +40,16 @@ interface Estimate {
   updated_at?: string;
 }
 
-const app = new Hono<{ Bindings: Env }>();
+interface User {
+  id: string;
+  email: string;
+  password_hash: string;
+  name: string;
+  role: 'admin' | 'user';
+  created_at?: string;
+}
+
+const app = new Hono<{ Bindings: Env; Variables: { user?: User } }>();
 
 app.use('*', cors({
   origin: '*',
@@ -49,6 +59,60 @@ app.use('*', cors({
 
 function generateUUID(): string { return crypto.randomUUID(); }
 function now(): string { return new Date().toISOString(); }
+
+// Simple hash function using Web Crypto API
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Simple JWT implementation
+async function createToken(payload: object, secret: string): Promise<string> {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const encode = (obj: object) => btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const headerB64 = encode(header);
+  const payloadB64 = encode({ ...payload, exp: Date.now() + 7 * 24 * 60 * 60 * 1000 }); // 7 days
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${headerB64}.${payloadB64}`));
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  return `${headerB64}.${payloadB64}.${signatureB64}`;
+}
+
+async function verifyToken(token: string, secret: string): Promise<any | null> {
+  try {
+    const [headerB64, payloadB64, signatureB64] = token.split('.');
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+    const signature = Uint8Array.from(atob(signatureB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify('HMAC', key, signature, encoder.encode(`${headerB64}.${payloadB64}`));
+    if (!valid) return null;
+    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload.exp && payload.exp < Date.now()) return null;
+    return payload;
+  } catch { return null; }
+}
+
+// Auth middleware
+const authMiddleware = async (c: any, next: any) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ success: false, error: 'Unauthorized' }, 401);
+  }
+  const token = authHeader.slice(7);
+  const payload = await verifyToken(token, c.env.JWT_SECRET || 'mr-gutter-secret-key-2024');
+  if (!payload) {
+    return c.json({ success: false, error: 'Invalid or expired token' }, 401);
+  }
+  const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(payload.userId).first();
+  if (!user) {
+    return c.json({ success: false, error: 'User not found' }, 401);
+  }
+  c.set('user', user);
+  await next();
+};
 
 function getDateBoundaries() {
   const today = new Date();
@@ -69,6 +133,47 @@ function getDateBoundaries() {
     today: today.toISOString().split('T')[0],
   };
 }
+
+// ============================================
+// AUTH ENDPOINTS (public)
+// ============================================
+
+app.post('/auth/login', async (c) => {
+  try {
+    const { email, password } = await c.req.json();
+    if (!email || !password) {
+      return c.json({ success: false, error: 'Email and password required' }, 400);
+    }
+    
+    const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email.toLowerCase()).first() as User | null;
+    if (!user) {
+      return c.json({ success: false, error: 'Invalid credentials' }, 401);
+    }
+    
+    const passwordHash = await hashPassword(password);
+    if (passwordHash !== user.password_hash) {
+      return c.json({ success: false, error: 'Invalid credentials' }, 401);
+    }
+    
+    const token = await createToken({ userId: user.id, email: user.email }, c.env.JWT_SECRET || 'mr-gutter-secret-key-2024');
+    
+    return c.json({ 
+      success: true, 
+      token,
+      user: { id: user.id, email: user.email, name: user.name, role: user.role }
+    });
+  } catch (error) {
+    return c.json({ success: false, error: String(error) }, 500);
+  }
+});
+
+app.get('/auth/verify', authMiddleware, async (c) => {
+  const user = c.get('user') as User;
+  return c.json({ 
+    success: true, 
+    user: { id: user.id, email: user.email, name: user.name, role: user.role }
+  });
+});
 
 // ============================================
 // ALICE AI TOOLS
@@ -193,10 +298,11 @@ async function executeAliceTool(db: D1Database, toolName: string, input: any): P
 }
 
 // ============================================
-// ALICE ENDPOINT
+// PROTECTED ROUTES
 // ============================================
 
-app.post('/alice', async (c) => {
+// Alice endpoint
+app.post('/alice', authMiddleware, async (c) => {
   try {
     const body = await c.req.json<{ system: string; messages: any[] }>();
     
@@ -267,11 +373,8 @@ app.post('/alice', async (c) => {
   }
 });
 
-// ============================================
-// JOBS ENDPOINTS
-// ============================================
-
-app.get('/jobs', async (c) => {
+// Jobs endpoints
+app.get('/jobs', authMiddleware, async (c) => {
   const { start_date, end_date } = c.req.query();
   let query = 'SELECT * FROM jobs WHERE 1=1';
   const params: string[] = [];
@@ -284,7 +387,7 @@ app.get('/jobs', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-app.get('/jobs/:id', async (c) => {
+app.get('/jobs/:id', authMiddleware, async (c) => {
   const id = c.req.param('id');
   try {
     const result = await c.env.DB.prepare('SELECT * FROM jobs WHERE id = ?').bind(id).first();
@@ -293,7 +396,7 @@ app.get('/jobs/:id', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-app.post('/jobs', async (c) => {
+app.post('/jobs', authMiddleware, async (c) => {
   try {
     const body = await c.req.json<Omit<Job, 'id' | 'profit' | 'created_at' | 'updated_at'>>();
     if (!body.client_name || body.full_price === undefined || body.material_cost === undefined || body.workers_cost === undefined || !body.job_date) {
@@ -307,7 +410,7 @@ app.post('/jobs', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-app.put('/jobs/:id', async (c) => {
+app.put('/jobs/:id', authMiddleware, async (c) => {
   const id = c.req.param('id');
   try {
     const existing = await c.env.DB.prepare('SELECT * FROM jobs WHERE id = ?').bind(id).first();
@@ -329,7 +432,7 @@ app.put('/jobs/:id', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-app.delete('/jobs/:id', async (c) => {
+app.delete('/jobs/:id', authMiddleware, async (c) => {
   const id = c.req.param('id');
   try {
     const existing = await c.env.DB.prepare('SELECT * FROM jobs WHERE id = ?').bind(id).first();
@@ -339,11 +442,8 @@ app.delete('/jobs/:id', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-// ============================================
-// GOALS ENDPOINTS
-// ============================================
-
-app.get('/goals/:year', async (c) => {
+// Goals endpoints
+app.get('/goals/:year', authMiddleware, async (c) => {
   const year = parseInt(c.req.param('year'));
   if (isNaN(year)) return c.json({ success: false, error: 'Invalid year' }, 400);
   try {
@@ -353,7 +453,7 @@ app.get('/goals/:year', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-app.put('/goals/:year', async (c) => {
+app.put('/goals/:year', authMiddleware, async (c) => {
   const year = parseInt(c.req.param('year'));
   if (isNaN(year)) return c.json({ success: false, error: 'Invalid year' }, 400);
   try {
@@ -377,11 +477,8 @@ app.put('/goals/:year', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-// ============================================
-// ESTIMATES ENDPOINTS
-// ============================================
-
-app.get('/estimates', async (c) => {
+// Estimates endpoints
+app.get('/estimates', authMiddleware, async (c) => {
   const { stage } = c.req.query();
   let query = 'SELECT * FROM estimates WHERE 1=1';
   const params: string[] = [];
@@ -393,14 +490,14 @@ app.get('/estimates', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-app.get('/estimates/stats', async (c) => {
+app.get('/estimates/stats', authMiddleware, async (c) => {
   try {
     const result = await c.env.DB.prepare(`SELECT stage, COUNT(*) as count, COALESCE(SUM(estimate_amount), 0) as total_amount FROM estimates GROUP BY stage`).all();
     return c.json({ success: true, data: result.results });
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-app.get('/estimates/:id', async (c) => {
+app.get('/estimates/:id', authMiddleware, async (c) => {
   const id = c.req.param('id');
   try {
     const result = await c.env.DB.prepare('SELECT * FROM estimates WHERE id = ?').bind(id).first();
@@ -409,7 +506,7 @@ app.get('/estimates/:id', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-app.post('/estimates', async (c) => {
+app.post('/estimates', authMiddleware, async (c) => {
   try {
     const body = await c.req.json<Omit<Estimate, 'id' | 'created_at' | 'updated_at'>>();
     if (!body.client_name) return c.json({ success: false, error: 'Missing required field: client_name' }, 400);
@@ -421,7 +518,7 @@ app.post('/estimates', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-app.put('/estimates/:id', async (c) => {
+app.put('/estimates/:id', authMiddleware, async (c) => {
   const id = c.req.param('id');
   try {
     const existing = await c.env.DB.prepare('SELECT * FROM estimates WHERE id = ?').bind(id).first();
@@ -442,7 +539,7 @@ app.put('/estimates/:id', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-app.delete('/estimates/:id', async (c) => {
+app.delete('/estimates/:id', authMiddleware, async (c) => {
   const id = c.req.param('id');
   try {
     const existing = await c.env.DB.prepare('SELECT * FROM estimates WHERE id = ?').bind(id).first();
@@ -452,11 +549,8 @@ app.delete('/estimates/:id', async (c) => {
   } catch (error) { return c.json({ success: false, error: String(error) }, 500); }
 });
 
-// ============================================
-// STATS ENDPOINTS
-// ============================================
-
-app.get('/stats/summary', async (c) => {
+// Stats endpoints
+app.get('/stats/summary', authMiddleware, async (c) => {
   const dates = getDateBoundaries();
   try {
     const getStats = async (startDate: string) => {
@@ -481,15 +575,16 @@ app.get('/stats/summary', async (c) => {
 });
 
 // ============================================
-// HEALTH CHECK
+// HEALTH CHECK (public)
 // ============================================
 
 app.get('/', (c) => {
   return c.json({ 
     success: true, 
     message: 'Mr Gutter Production Tracker API',
-    version: '2.0.1',
+    version: '2.1.0',
     endpoints: {
+      auth: ['POST /auth/login', 'GET /auth/verify'],
       jobs: ['GET /jobs', 'GET /jobs/:id', 'POST /jobs', 'PUT /jobs/:id', 'DELETE /jobs/:id'],
       goals: ['GET /goals/:year', 'PUT /goals/:year'],
       estimates: ['GET /estimates', 'GET /estimates/:id', 'POST /estimates', 'PUT /estimates/:id', 'DELETE /estimates/:id', 'GET /estimates/stats'],
